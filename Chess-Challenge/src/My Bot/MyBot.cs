@@ -18,6 +18,8 @@ public class MyBot : IChessBot
     {
         var allMoves = new Queue<Move>(moves);
 
+        // IDEA: check multiple moves into the future if the bot can get attacked after x moves after this move
+
         Move moveToPlay;
         do
         {
@@ -34,14 +36,20 @@ public class MyBot : IChessBot
         Move? moveToPlay = null;
         foreach (var move in moves)
         {
+            // shortcut to checkmate
             if (MoveIsCheckmate(board, move))
             {
                 moveToPlay = move;
                 break;
             }
 
+            // only update moveToPlay if the target piece is of higher value
             var capturedPiece = board.GetPiece(move.TargetSquare);
             if ((int)capturedPiece.PieceType <= highestValueCapture)
+                continue;
+
+            // don't update if the attack would give the opponent the opportunity to capture
+            if (board.SquareIsAttackedByOpponent(move.TargetSquare))
                 continue;
 
             moveToPlay = move;
