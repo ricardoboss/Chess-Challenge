@@ -360,7 +360,7 @@ namespace ChessChallenge.Application
                 }
                 else
                 {
-                    if (isWaitingToPlayMove && Raylib.GetTime() > playMoveTime)
+                    if (isWaitingToPlayMove)// && Raylib.GetTime() > playMoveTime)
                     {
                         isWaitingToPlayMove = false;
                         PlayMove(moveToPlay);
