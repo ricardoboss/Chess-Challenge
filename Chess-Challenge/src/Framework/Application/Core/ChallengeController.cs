@@ -228,7 +228,7 @@ namespace ChessChallenge.Application
                 {
                     moveToPlay = chosenMove;
                     isWaitingToPlayMove = true;
-                    const float minDelay = 0.1f;
+                    const float minDelay = 0.01f;
                     playMoveTime = lastMoveMadeTime + minDelay;
                 }
                 else
