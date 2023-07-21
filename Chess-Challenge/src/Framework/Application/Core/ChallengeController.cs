@@ -32,6 +32,8 @@ namespace ChessChallenge.Application
         bool isWaitingToPlayMove;
         Move moveToPlay;
         float playMoveTime;
+        bool speedPlay;
+        bool paused;
         public bool HumanWasWhiteLastGame { get; private set; }
 
         // Bot match state
@@ -346,6 +348,17 @@ namespace ChessChallenge.Application
             }
         }
 
+        public void ToggleSpeedPlay()
+        {
+            speedPlay = !speedPlay;
+        }
+
+        public void TogglePause()
+        {
+            paused = !paused;
+            isPlaying = !paused;
+        }
+
         public void Update()
         {
             if (isPlaying)
@@ -360,10 +373,16 @@ namespace ChessChallenge.Application
                 }
                 else
                 {
-                    if (isWaitingToPlayMove)// && Raylib.GetTime() > playMoveTime)
+                    boardUI.OverrideSquareColour(moveToPlay.StartSquareIndex, BoardUI.HighlightType.PlannedMoveFrom);
+                    boardUI.OverrideSquareColour(moveToPlay.TargetSquareIndex, BoardUI.HighlightType.PlannedMoveTo);
+
+                    if (isWaitingToPlayMove)
                     {
-                        isWaitingToPlayMove = false;
-                        PlayMove(moveToPlay);
+                        if (speedPlay || Raylib.GetTime() > playMoveTime)
+                        {
+                            isWaitingToPlayMove = false;
+                            PlayMove(moveToPlay);
+                        }
                     }
                 }
             }

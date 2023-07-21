@@ -13,8 +13,14 @@ namespace ChessChallenge.Application
         public Color MoveFromLight = new Color(207, 172, 106, 255);
         public Color MoveFromDark = new Color(197, 158, 54, 255);
 
+        public Color PlannedMoveFromLight = new Color(172, 207, 106, 255);
+        public Color PlannedMoveFromDark = new Color(158, 197, 54, 255);
+
         public Color MoveToLight = new Color(221, 208, 124, 255);
         public Color MoveToDark = new Color(197, 173, 96, 255);
+
+        public Color PlannedMoveToLight = new Color(208, 221, 124, 255);
+        public Color PlannedMoveToDark = new Color(173, 197, 96, 255);
 
         public Color LegalLight = new Color(89, 171, 221, 255);
         public Color LegalDark = new Color(62, 144, 195, 255);

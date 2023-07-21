@@ -30,6 +30,18 @@ namespace ChessChallenge.Application
                 controller.StartNewBotMatch(ChallengeController.PlayerType.MyBot, ChallengeController.PlayerType.EvilBot);
             }
 
+            // Game control buttons
+            buttonPos.Y += breakSpacing;
+
+            if (NextButtonInRow("Toggle Speed Play", ref buttonPos, spacing, buttonSize))
+            {
+                controller.ToggleSpeedPlay();
+            }
+            if (NextButtonInRow("Toggle Pause", ref buttonPos, spacing, buttonSize))
+            {
+                controller.TogglePause();
+            }
+
             // Page buttons
             buttonPos.Y += breakSpacing;
 
