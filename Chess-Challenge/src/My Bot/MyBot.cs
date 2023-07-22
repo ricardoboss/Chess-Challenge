@@ -68,4 +68,11 @@ public class MyBot : IChessBot
         board.UndoMove(move);
         return isMate;
     }
+
+    // bool EnablesBait(Board board, Move move)
+    // {
+    //     board.MakeMove(move);
+    //     var opponentMovesToTargetSquare = board.GetLegalMoves().Where(m => m.TargetSquare == move.TargetSquare).ToArray();
+    //
+    // }
 }
