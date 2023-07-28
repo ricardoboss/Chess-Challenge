@@ -1,120 +1,129 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
+using System.Linq;
 using ChessChallenge.API;
 
 public class MyBot : IChessBot
 {
-    // Random rng = new();
-    private string[][] openingMoves = new[]
-    {
-        new []
-        {
-            ""
-        }
-    };
+    Random rng = new();
 
     public Move Think(Board board, Timer timer)
     {
-        // var moves = board.GetLegalMoves().OrderBy(_ => rng.NextDouble()).ToArray();
-        var moves = GetBestMoves(board);
+        var moves = GetBestMoves(board, 2);
 
-        // return GetMoveThatCaptures(board, moves) ?? GetNotAttackedMove(board, moves) ?? moves[0];
-        return moves[0];
+        var moveToMake = moves.MinBy(_ => rng.NextDouble());
+
+        Console.WriteLine($"Chose move: {moveToMake}");
+
+        return moveToMake;
     }
 
     /// Calculates the best moves based on an evaluation function
-    private List<Move> GetBestMoves(Board board)
+    private IEnumerable<Move> GetBestMoves(Board board, int checkDepth)
     {
-        board.GetPieceList()
-
-        var moves = board.GetLegalMoves();
-        var bestMoves = new List<Move>();
         var bestMoveValue = int.MinValue;
+        var bestMoves = new List<Move>();
+        var moves = board.GetLegalMoves();
 
-        foreach (var move in moves)
+        do
         {
-            var moveValue = EvaluateMove(board, move);
-            if (moveValue > bestMoveValue)
+            foreach (var move in moves)
             {
-                bestMoves.Clear();
-                bestMoves.Add(move);
-                bestMoveValue = moveValue;
+                var moveValue = ScoreMove(board, move, checkDepth);
+                if (moveValue > bestMoveValue)
+                {
+                    bestMoves.Clear();
+                    bestMoves.Add(move);
+                    bestMoveValue = moveValue;
+                }
+                else if (moveValue == bestMoveValue)
+                {
+                    bestMoves.Add(move);
+                }
             }
-            else if (moveValue == bestMoveValue)
-            {
-                bestMoves.Add(move);
-            }
-        }
+
+            Console.WriteLine($"Depth: {checkDepth}, max score: {bestMoveValue}, moves with that score: {bestMoves.Count}");
+
+            checkDepth++;
+        } while (bestMoveValue <= 0 && checkDepth < 5);
 
         return bestMoves;
     }
 
     /// Evaluates a move based on the value of the piece that is captured
     /// The higher the better the move
-    private int EvaluateMove(Board board, Move move)
+    private int ScoreMove(Board board, Move move, int maxDepth, int depth = 0)
     {
-        var capturedPiece = board.GetPiece(move.TargetSquare);
-        return (int)capturedPiece.PieceType;
+        board.MakeMove(move);
+
+        var score = 0;
+
+        if (board.IsInCheckmate())
+        {
+            score += 100;
+        }
+        else if (board.IsInCheck())
+        {
+            score += 10;
+        }
+        else if (board.IsDraw())
+        {
+            score -= 5;
+        }
+
+        if (board.SquareIsAttackedByOpponent(move.TargetSquare))
+        {
+            score -= 5;
+        }
+
+        if (move.IsCapture)
+        {
+            var capturedPiece = board.GetPiece(move.TargetSquare);
+            score += capturedPiece.PieceType switch
+            {
+                PieceType.Pawn => 1,
+                PieceType.Knight => 5,
+                PieceType.Bishop => 7,
+                PieceType.Rook => 9,
+                PieceType.Queen => 10,
+                PieceType.King => 20,
+                _ => 0,
+            } * 2;
+        }
+
+        if (move.IsPromotion)
+        {
+            score += move.PromotionPieceType switch
+            {
+                PieceType.Knight => 3,
+                PieceType.Bishop => 5,
+                PieceType.Rook => 7,
+                PieceType.Queen => 9,
+                _ => 0,
+            };
+        }
+
+        if (move.MovePieceType == PieceType.King)
+        {
+            score -= 5;
+        }
+
+        if (depth < maxDepth)
+        {
+            var bestOpponentMoveScores = board
+                .GetLegalMoves()
+                .Select(m => ScoreMove(board, m, maxDepth, depth + 1))
+                .ToList();
+
+            if (bestOpponentMoveScores.Count > 0)
+                score -= bestOpponentMoveScores.Max();
+            else
+                score += 100; // opponent has no legal moves => checkmate
+        }
+
+        board.UndoMove(move);
+
+        var isMyMove = depth % 2 == 0;
+        return isMyMove ? score : -score;
     }
-
-    // Move? GetNotAttackedMove(Board board, Move[] moves)
-    // {
-    //     var allMoves = new Queue<Move>(moves);
-    //
-    //     // IDEA: check multiple moves into the future if the bot can get attacked after x moves after this move
-    //
-    //     Move moveToPlay;
-    //     do
-    //     {
-    //         if (!allMoves.TryDequeue(out moveToPlay))
-    //             return null;
-    //     } while (board.SquareIsAttackedByOpponent(moveToPlay.TargetSquare));
-    //
-    //     return moveToPlay;
-    // }
-
-    // Move? GetMoveThatCaptures(Board board, Move[] moves)
-    // {
-    //     var highestValueCapture = 0;
-    //     Move? moveToPlay = null;
-    //     foreach (var move in moves)
-    //     {
-    //         // shortcut to checkmate
-    //         if (MoveIsCheckmate(board, move))
-    //         {
-    //             moveToPlay = move;
-    //             break;
-    //         }
-    //
-    //         // only update moveToPlay if the target piece is of higher value
-    //         var capturedPiece = board.GetPiece(move.TargetSquare);
-    //         if ((int)capturedPiece.PieceType <= highestValueCapture)
-    //             continue;
-    //
-    //         // don't update if the attack would give the opponent the opportunity to capture
-    //         if (board.SquareIsAttackedByOpponent(move.TargetSquare))
-    //             continue;
-    //
-    //         moveToPlay = move;
-    //         highestValueCapture = (int)capturedPiece.PieceType;
-    //     }
-    //
-    //     if (highestValueCapture == 0) return null;
-    //
-    //     return moveToPlay;
-    // }
-
-    // bool MoveIsCheckmate(Board board, Move move)
-    // {
-    //     board.MakeMove(move);
-    //     var isMate = board.IsInCheckmate();
-    //     board.UndoMove(move);
-    //     return isMate;
-    // }
-
-    // bool EnablesBait(Board board, Move move)
-    // {
-    //     board.MakeMove(move);
-    //     var opponentMovesToTargetSquare = board.GetLegalMoves().Where(m => m.TargetSquare == move.TargetSquare).ToArray();
-    //
-    // }
 }
