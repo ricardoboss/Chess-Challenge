@@ -41,6 +41,10 @@ namespace ChessChallenge.Application
             {
                 controller.TogglePause();
             }
+            if (NextButtonInRow("Single Step", ref buttonPos, spacing, buttonSize))
+            {
+                controller.SingleStep();
+            }
 
             // Page buttons
             buttonPos.Y += breakSpacing;

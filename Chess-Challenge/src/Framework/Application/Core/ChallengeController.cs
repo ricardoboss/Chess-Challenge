@@ -34,6 +34,7 @@ namespace ChessChallenge.Application
         float playMoveTime;
         bool speedPlay;
         bool paused;
+        int singleStep = -1;
         public bool HumanWasWhiteLastGame { get; private set; }
 
         // Bot match state
@@ -355,8 +356,22 @@ namespace ChessChallenge.Application
 
         public void TogglePause()
         {
+            InternalTogglePause();
+            if (!paused) singleStep = -1;
+        }
+
+        private void InternalTogglePause()
+        {
             paused = !paused;
             isPlaying = !paused;
+        }
+
+        public void SingleStep()
+        {
+            singleStep++;
+            if (singleStep > 1) singleStep = 0;
+
+            InternalTogglePause();
         }
 
         public void Update()
@@ -373,15 +388,15 @@ namespace ChessChallenge.Application
                 }
                 else
                 {
-                    boardUI.OverrideSquareColour(moveToPlay.StartSquareIndex, BoardUI.HighlightType.PlannedMoveFrom);
-                    boardUI.OverrideSquareColour(moveToPlay.TargetSquareIndex, BoardUI.HighlightType.PlannedMoveTo);
-
                     if (isWaitingToPlayMove)
                     {
                         if (speedPlay || Raylib.GetTime() > playMoveTime)
                         {
                             isWaitingToPlayMove = false;
                             PlayMove(moveToPlay);
+
+                            if (singleStep >= 0)
+                                InternalTogglePause();
                         }
                     }
                 }
@@ -396,6 +411,11 @@ namespace ChessChallenge.Application
 
         public void Draw()
         {
+            if (!moveToPlay.IsNull)
+            {
+                boardUI.OverrideSquareColour(moveToPlay.StartSquareIndex, BoardUI.HighlightType.PlannedMoveFrom);
+                boardUI.OverrideSquareColour(moveToPlay.TargetSquareIndex, BoardUI.HighlightType.PlannedMoveTo);
+            }
             boardUI.Draw();
             string nameW = GetPlayerName(PlayerWhite);
             string nameB = GetPlayerName(PlayerBlack);
