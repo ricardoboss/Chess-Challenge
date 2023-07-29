@@ -1,9 +1,11 @@
-﻿using System;
+namespace ChessChallenge.Example;
+
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using ChessChallenge.API;
 
-public class MyBot : IChessBot
+public class V1 : IChessBot
 {
     Random rng = new();
 
