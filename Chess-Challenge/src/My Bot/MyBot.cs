@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using ChessChallenge.API;
 
@@ -9,7 +10,7 @@ public class MyBot : IChessBot
 
     public Move Think(Board board, Timer timer)
     {
-        var moves = GetBestMoves(board, 2);
+        var moves = GetBestMoves(board, 3, 2000);
 
         var moveToMake = moves.MinBy(_ => rng.NextDouble());
 
@@ -19,17 +20,24 @@ public class MyBot : IChessBot
     }
 
     /// Calculates the best moves based on an evaluation function
-    private IEnumerable<Move> GetBestMoves(Board board, int checkDepth)
+    private IEnumerable<Move> GetBestMoves(Board board, int minCheckDepth, long maxMillis)
     {
         var bestMoveValue = int.MinValue;
         var bestMoves = new List<Move>();
         var moves = board.GetLegalMoves();
 
+        if (moves.Length == 1)
+            return moves;
+
+        var sw = new Stopwatch();
+        sw.Start();
         do
         {
-            foreach (var move in moves)
+            Console.Write($"Depth: {minCheckDepth}, available moves: {moves.Length}");
+
+            foreach (var move in moves.OrderBy(_ => rng.NextDouble()))
             {
-                var moveValue = ScoreMove(board, move, checkDepth);
+                var moveValue = EvaluateMove(board, move, sw, maxMillis, minCheckDepth);
                 if (moveValue > bestMoveValue)
                 {
                     bestMoves.Clear();
@@ -42,38 +50,36 @@ public class MyBot : IChessBot
                 }
             }
 
-            Console.WriteLine($"Depth: {checkDepth}, max score: {bestMoveValue}, moves with that score: {bestMoves.Count}");
+            Console.WriteLine($", max score: {bestMoveValue}, moves with that score: {bestMoves.Count}, time: {sw.ElapsedMilliseconds}ms");
 
-            checkDepth++;
-        } while (bestMoveValue <= 0 && checkDepth < 5);
+            minCheckDepth++;
+        } while (sw.ElapsedMilliseconds < maxMillis && minCheckDepth < 10);
 
         return bestMoves;
     }
 
+    static Dictionary<ulong, Dictionary<ushort, int>> moveCache = new();
+
     /// Evaluates a move based on the value of the piece that is captured
     /// The higher the better the move
-    private int ScoreMove(Board board, Move move, int maxDepth, int depth = 0)
+    private int EvaluateMove(Board board, Move move, Stopwatch sw, long maxMillis, int maxDepth, int depth = 0)
     {
-        board.MakeMove(move);
-
+        var isMyMove = depth % 2 == 0;
         var score = 0;
 
-        if (board.IsInCheckmate())
+        Dictionary<ushort, int> boardCache;
+        if (moveCache.TryGetValue(board.ZobristKey, out var nullableBoardCache))
         {
-            score += 100;
+            boardCache = nullableBoardCache;
+            if (boardCache.TryGetValue(move.RawValue, out score))
+            {
+                score = isMyMove ? score : -score;
+            }
         }
-        else if (board.IsInCheck())
+        else
         {
-            score += 10;
-        }
-        else if (board.IsDraw())
-        {
-            score -= 5;
-        }
-
-        if (board.SquareIsAttackedByOpponent(move.TargetSquare))
-        {
-            score -= 5;
+            boardCache = new();
+            moveCache[board.ZobristKey] = boardCache;
         }
 
         if (move.IsCapture)
@@ -82,48 +88,182 @@ public class MyBot : IChessBot
             score += capturedPiece.PieceType switch
             {
                 PieceType.Pawn => 1,
-                PieceType.Knight => 5,
-                PieceType.Bishop => 7,
-                PieceType.Rook => 9,
-                PieceType.Queen => 10,
-                PieceType.King => 20,
+                PieceType.Knight => 10,
+                PieceType.Bishop => 100,
+                PieceType.Rook => 1000,
+                PieceType.Queen => 10000,
+                PieceType.King => 100000,
                 _ => 0,
-            } * 2;
+            };
         }
 
         if (move.IsPromotion)
         {
             score += move.PromotionPieceType switch
             {
-                PieceType.Knight => 3,
-                PieceType.Bishop => 5,
-                PieceType.Rook => 7,
-                PieceType.Queen => 9,
+                PieceType.Knight => 1,
+                PieceType.Bishop => 10,
+                PieceType.Rook => 100,
+                PieceType.Queen => 1000,
                 _ => 0,
             };
         }
 
-        if (move.MovePieceType == PieceType.King)
+        if (board.SquareIsAttackedByOpponent(move.StartSquare))
         {
-            score -= 5;
+            score += 10; // encourage moving away from attacked squares
         }
 
-        if (depth < maxDepth)
+        if (board.SquareIsAttackedByOpponent(move.TargetSquare))
+        {
+            score -= 10; // discourage moving to attacked squares
+
+            board.MakeMove(move);
+
+            // can we attack the attacker?
+            if (board.SquareIsAttackedByOpponent(move.TargetSquare))
+            {
+                score += 10; // encourage attacking the attacker
+
+                var baitType = move.MovePieceType;
+                var attackerType = board.GetPiece(move.TargetSquare).PieceType;
+
+                score += baitType switch
+                {
+                    PieceType.Pawn => attackerType switch
+                    {
+                        PieceType.Pawn => -10,
+                        PieceType.Knight => 10,
+                        PieceType.Bishop => 100,
+                        PieceType.Rook => 1000,
+                        PieceType.Queen => 10000,
+                        PieceType.King => 100000, // leads to checkmate?
+                        _ => 0,
+                    },
+                    PieceType.Knight => attackerType switch
+                    {
+                        PieceType.Pawn => -100,
+                        PieceType.Knight => -10,
+                        PieceType.Bishop => 10,
+                        PieceType.Rook => 100,
+                        PieceType.Queen => 1000,
+                        PieceType.King => 10000, // leads to checkmate?
+                        _ => 0,
+                    },
+                    PieceType.Bishop => attackerType switch
+                    {
+                        PieceType.Pawn => -1000,
+                        PieceType.Knight => -100,
+                        PieceType.Bishop => -10,
+                        PieceType.Rook => 10,
+                        PieceType.Queen => 100,
+                        PieceType.King => 1000, // leads to checkmate?
+                        _ => 0,
+                    },
+                    PieceType.Rook => attackerType switch
+                    {
+                        PieceType.Pawn => -1000,
+                        PieceType.Knight => -100,
+                        PieceType.Bishop => -10,
+                        PieceType.Rook => -10,
+                        PieceType.Queen => 10,
+                        PieceType.King => 100, // leads to checkmate?
+                        _ => 0,
+                    },
+                    PieceType.Queen => attackerType switch
+                    {
+                        PieceType.Pawn => -10000,
+                        PieceType.Knight => -1000,
+                        PieceType.Bishop => -100,
+                        PieceType.Rook => -10,
+                        PieceType.Queen => -1, // queen exchange when possible
+                        PieceType.King => 1000, // leads to checkmate?
+                        _ => 0,
+                    },
+                    PieceType.King => -100000,
+                    _ => 0,
+                };
+            }
+
+            board.UndoMove(move);
+        }
+
+        switch (move.MovePieceType)
+        {
+            case PieceType.Pawn:
+                // TODO: increase score if reaching the other side
+                score -= 1;
+                break;
+            case PieceType.Knight:
+                // TODO: check for knight specific improvements
+                break;
+            case PieceType.Bishop:
+                // TODO: check for bishop specific improvements
+                break;
+            case PieceType.Rook:
+                // TODO: check for rook specific improvements
+                break;
+            case PieceType.Queen:
+                // TODO: check for queen specific improvements
+                break;
+            case PieceType.King:
+                score -= 10; // discourage king from moving
+                if (board.IsInCheck() && !board.GetPiece(move.TargetSquare).IsNull)
+                {
+                    score += 100; // make the king capture the attacker
+                }
+
+                break;
+        }
+
+        if (move.TargetSquare.Index is >= 27 and <= 28 or >= 35 and <= 36)
+        {
+            score += 1; // encourage moving to the opponent's side
+        }
+
+        board.MakeMove(move);
+
+        if (board.IsInCheckmate())
+        {
+            score += 100000; // make the move if it leads to checkmate
+        }
+        else if (board.IsInCheck())
+        {
+            score += 1000; // encourage checking the opponent
+
+            board.UndoMove(move);
+
+            if (board.SquareIsAttackedByOpponent(move.TargetSquare))
+            {
+                score -= 1000; // discourage checking the opponent if the attacker is attacked
+            }
+
+            board.MakeMove(move);
+        }
+        // else if (board.IsDraw())
+        // {
+        //     score -= 5;
+        // }
+
+        if (depth < maxDepth && sw.ElapsedMilliseconds < maxMillis)
         {
             var bestOpponentMoveScores = board
                 .GetLegalMoves()
-                .Select(m => ScoreMove(board, m, maxDepth, depth + 1))
+                .Select(m => EvaluateMove(board, m, sw, maxMillis, maxDepth, depth + 1))
                 .ToList();
 
             if (bestOpponentMoveScores.Count > 0)
-                score -= bestOpponentMoveScores.Max();
+                score -= bestOpponentMoveScores.Max(); // discourage moves that lead to a good opponent move
             else
-                score += 100; // opponent has no legal moves => checkmate
+                score += 100000; // opponent has no legal moves => checkmate
         }
 
         board.UndoMove(move);
 
-        var isMyMove = depth % 2 == 0;
+        // only cache if fully calculated
+        if (sw.ElapsedMilliseconds > maxMillis)
+            boardCache[move.RawValue] = score;
+
         return isMyMove ? score : -score;
     }
 }
