@@ -219,6 +219,7 @@ namespace ChessChallenge.Application
                 PlayerType.EvilBot => new ChessPlayer(new EvilBot(), type, GameDurationMilliseconds),
                 PlayerType.AresV1Bot => new ChessPlayer(new AresV1(), type, GameDurationMilliseconds),
                 PlayerType.AresV2Bot => new ChessPlayer(new AresV2(), type, GameDurationMilliseconds),
+                PlayerType.AresV3Bot => new ChessPlayer(new AresV3(), type, GameDurationMilliseconds),
                 PlayerType.V1Bot => new ChessPlayer(new V1(), type, GameDurationMilliseconds),
                 _ => new ChessPlayer(new HumanPlayer(boardUI), type)
             };
