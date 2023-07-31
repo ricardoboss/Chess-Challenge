@@ -19,7 +19,9 @@ namespace ChessChallenge.Application
         {
             Human,
             MyBot,
-            EvilBot
+            EvilBot,
+            KuchtaBot,
+            V1Bot
         }
 
         // Game state
