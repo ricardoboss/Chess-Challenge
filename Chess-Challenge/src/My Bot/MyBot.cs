@@ -7,7 +7,7 @@ using ChessChallenge.API;
 // ReSharper disable All
 public class MyBot : IChessBot
 {
-    const int maxDepth = 2; // should be even for best scoring
+    const int maxDepth = 3; // should be even for best scoring
 
     const int pawnValue = 100;
     const int knightValue = 300;
@@ -31,7 +31,6 @@ public class MyBot : IChessBot
 
     const int drawPenalty = 1000;
 
-    Random rng = new();
     Board board = null!;
     bool iAmWhite;
 
@@ -40,14 +39,14 @@ public class MyBot : IChessBot
         board = b;
         iAmWhite = board.IsWhiteToMove;
 
-        var (bestScore, bestMove) = GetBestMove();
+        var (bestScore, bestMove) = GetBestMove(maxDepth);
 
         Console.WriteLine("Best move score: " + bestScore + ", took " + timer.MillisecondsElapsedThisTurn);
 
         return bestMove;
     }
 
-    (int score, Move move) GetBestMove(int depth = 0)
+    (int score, Move move) GetBestMove(int remainingDepth)
     {
         var legalMoves = board.GetLegalMoves();
         if (legalMoves.Length == 0)
@@ -65,7 +64,7 @@ public class MyBot : IChessBot
         var bestScore = int.MinValue;
         foreach (var move in legalMoves)
         {
-            var score = EvaluateMove(move, depth);
+            var score = EvaluateMove(move, remainingDepth);
             if (score > bestScore)
             {
                 bestMoves.Clear();
@@ -83,7 +82,7 @@ public class MyBot : IChessBot
         return (bestScore, bestMoves[0]);
     }
 
-    int EvaluateMove(Move move, int depth = 0)
+    int EvaluateMove(Move move, int remainingDepth = 0)
     {
         var score = 0;
 
@@ -91,9 +90,9 @@ public class MyBot : IChessBot
 
         var preMoveEvaluation = EvaluateBoard();
 
-        if (depth < maxDepth)
+        if (remainingDepth > 0)
         {
-            var (enemyBestMoveScore, _) = GetBestMove(depth + 1);
+            var (enemyBestMoveScore, _) = GetBestMove(remainingDepth - 1);
 
             score -= enemyBestMoveScore;
         }
